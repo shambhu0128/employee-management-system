@@ -1,5 +1,5 @@
 package com.shubham.employeemanagementsystem.repository;
-
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import com.shubham.employeemanagementsystem.entity.Employee;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
@@ -8,7 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
-public interface EmployeeRepository extends JpaRepository<Employee, Long> {
+public interface EmployeeRepository extends JpaRepository<Employee, Long>, JpaSpecificationExecutor<Employee> {
     List<Employee> findByDepartment(String department);
     @Query("SELECT e FROM Employee e WHERE e.salary > :salary")
     List<Employee> findEmployeesWithSalaryGreaterThan(@Param("salary") Double salary);
