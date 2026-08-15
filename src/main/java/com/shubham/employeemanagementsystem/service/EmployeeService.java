@@ -2,6 +2,8 @@ package com.shubham.employeemanagementsystem.service;
 
 import com.shubham.employeemanagementsystem.dto.EmployeeDto;
 import com.shubham.employeemanagementsystem.entity.Employee;
+import com.shubham.employeemanagementsystem.event.EmployeeCreatedEvent;
+import com.shubham.employeemanagementsystem.event.EmployeeEventProducer;
 import com.shubham.employeemanagementsystem.exception.ResourceNotFoundException;
 import com.shubham.employeemanagementsystem.mapper.EmployeeMapper;
 import com.shubham.employeemanagementsystem.repository.EmployeeRepository;
@@ -10,7 +12,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -20,9 +25,12 @@ public class EmployeeService {
             LoggerFactory.getLogger(EmployeeService.class);
 
     private final EmployeeRepository employeeRepository;
+    private final EmployeeEventProducer employeeEventProducer;
 
-    public EmployeeService(EmployeeRepository employeeRepository) {
+    public EmployeeService(EmployeeRepository employeeRepository,
+                           EmployeeEventProducer employeeEventProducer) {
         this.employeeRepository = employeeRepository;
+        this.employeeEventProducer = employeeEventProducer;
     }
 
     public EmployeeDto saveEmployee(EmployeeDto employeeDto) {
@@ -34,6 +42,14 @@ public class EmployeeService {
         Employee savedEmployee = employeeRepository.save(employee);
 
         logger.info("Employee saved successfully with ID: {}", savedEmployee.getId());
+
+        EmployeeCreatedEvent event = new EmployeeCreatedEvent(
+                savedEmployee.getId(),
+                savedEmployee.getFirstName() + " " + savedEmployee.getLastName(),
+                savedEmployee.getEmail(),
+                LocalDateTime.now()
+        );
+        employeeEventProducer.publishEmployeeCreated(event);
 
         return EmployeeMapper.toDto(savedEmployee);
     }
@@ -48,7 +64,7 @@ public class EmployeeService {
                 .map(EmployeeMapper::toDto)
                 .toList();
     }
-
+    @Cacheable(value = "employees", key = "#id")
     public EmployeeDto getEmployeeById(Long id) {
 
         logger.info("Fetching employee with ID: {}", id);
@@ -61,7 +77,7 @@ public class EmployeeService {
 
         return EmployeeMapper.toDto(employee);
     }
-
+    @CacheEvict(value = "employees", key = "#id")
     public EmployeeDto updateEmployee(Long id, EmployeeDto updatedEmployeeDto) {
 
         logger.info("Updating employee with ID: {}", id);
@@ -84,7 +100,7 @@ public class EmployeeService {
 
         return EmployeeMapper.toDto(updatedEmployee);
     }
-
+    @CacheEvict(value = "employees", key = "#id")
     public String deleteEmployee(Long id) {
 
         logger.info("Deleting employee with ID: {}", id);
